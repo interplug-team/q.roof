@@ -1,4 +1,15 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
 
-export default nextConfig;
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = { Canvas: false }
+    }
+
+    return config
+  },
+}
+
+export default nextConfig
