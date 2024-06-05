@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { FLAG } from '@/app/roof/page'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Layer, Line, Rect, Stage, Transformer } from 'react-konva'
 
 const Rectshape = ({ shapeProps, isSelected, onSelect, onChange }: any) => {
@@ -130,12 +131,14 @@ interface IShape {
 interface IShapeProps {
   shapes: IShape[]
   setShapes: React.Dispatch<React.SetStateAction<IShape[]>>
+  selectedId: string | null
+  selectShape: React.Dispatch<React.SetStateAction<string | null>>
+  moveFigure: Function
 }
 
 export default function Roof({ props }: { props: IShapeProps }) {
   // const [shapes, setShapes] = useState<IShape[]>([]) // Provide initial value as an empty array of type IShape[]
-  const { shapes, setShapes } = props
-  const [selectedId, selectShape] = useState<string | null>(null) // Add type annotation for selectedId
+  const { shapes, setShapes, selectedId, selectShape, moveFigure } = props
 
   const checkDeselect = (e: any) => {
     // deselect when clicked on empty area
@@ -167,6 +170,7 @@ export default function Roof({ props }: { props: IShapeProps }) {
                   const _shapes = shapes.slice()
                   _shapes[i] = newAttrs
                   setShapes(_shapes)
+                  moveFigure()
                 }}
               />
             )

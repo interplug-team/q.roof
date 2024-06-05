@@ -3,8 +3,19 @@
 import Hero from '@/components/Hero'
 import Roof from '@/components/Roof'
 import dynamic from 'next/dynamic'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+
+export const FLAG = {
+  DEFAULT: '',
+  REDO: 'redo',
+  UNDO: 'undo',
+  DELETE: 'delete',
+  CREATE: 'create',
+  MOVE: 'move',
+}
+
+Object.freeze(FLAG)
 
 export default function roofPage() {
   const NoSSRComponent = dynamic(() => import('@/components/Roof'), {
@@ -14,6 +25,10 @@ export default function roofPage() {
   const [shapes, setShapes] = useState<IShape[]>([])
 
   const historyShapes = useRef<any>([])
+  const historyStep = useRef<number>(0)
+  const flag = useRef<any>(FLAG.DEFAULT)
+  const [selectedId, selectShape] = useState<string | null>(null) // Add type annotation for selectedId
+  const [isLoading, setIsLoading] = useState<boolean>(false)
 
   const handleAddBox = () => {
     const rectangle = {
@@ -26,7 +41,7 @@ export default function roofPage() {
       stroke: 'black',
       id: uuidv4(),
     }
-    setShapes([...shapes, rectangle])
+    createFigure(rectangle)
   }
 
   const handleAddLineHorizontal = () => {
@@ -38,7 +53,7 @@ export default function roofPage() {
       stroke: 'black',
       id: uuidv4(),
     }
-    setShapes([...shapes, horizontalLine])
+    createFigure(horizontalLine)
   }
 
   const handleAddLineVerticality = () => {
@@ -50,40 +65,33 @@ export default function roofPage() {
       stroke: 'black',
       id: uuidv4(),
     }
-
-    setShapes([...shapes, verticalLine])
+    createFigure(verticalLine)
   }
 
   const handleClear = () => {
+    flag.current = FLAG.DELETE
     historyShapes.current.push(shapes)
     setShapes([])
   }
 
   const handleUndo = () => {
-    if (shapes.length === 0) {
-      alert('UNDO할 대상이 없습니다.')
+    if (historyStep.current === 0) {
       return
     }
-    const nowShapes = [...shapes]
-    historyShapes.current.push(nowShapes.pop())
-
-    setShapes([...shapes].splice(0, shapes.length - 1))
+    flag.current = FLAG.UNDO
+    historyStep.current = historyStep.current - 1
+    setShapes(historyShapes.current[historyStep.current])
   }
 
   const handleRedo = () => {
-    if (historyShapes.current.length === 0) {
+    if (historyShapes.current.length === historyStep.current + 1) {
       alert('REDO할 대상이 없습니다.')
       return
     }
 
-    const popShapes = historyShapes.current.pop()
-
-    if (Array.isArray(popShapes)) {
-      setShapes([...shapes, ...popShapes])
-      return
-    }
-
-    setShapes([...shapes, popShapes])
+    flag.current = FLAG.REDO
+    historyStep.current = historyStep.current + 1
+    setShapes(historyShapes.current[historyStep.current])
   }
 
   const handleSave = () => {
@@ -108,6 +116,51 @@ export default function roofPage() {
     localStorage.removeItem('shapes')
   }
 
+  const handleDelete = () => {
+    if (!selectedId) {
+      alert('삭제할 대상이 없습니다.')
+      return
+    }
+    flag.current = FLAG.DELETE
+    const newShapes = [...shapes].filter((elem) => elem.id !== selectedId)
+
+    setShapes(newShapes)
+  }
+
+  const createFigure = (figure: any) => {
+    flag.current = FLAG.CREATE
+    setShapes([...shapes, figure])
+  }
+
+  const moveFigure = () => {
+    flag.current = FLAG.MOVE
+  }
+
+  useEffect(() => {
+    // redo, undo 로 인한 shape 변경일 경우 history에 넣지 않음
+    switch (flag.current) {
+      case FLAG.CREATE:
+      case FLAG.DELETE:
+      case FLAG.MOVE:
+        historyShapes.current.push(shapes)
+        historyStep.current = historyShapes.current.length
+        break
+      case FLAG.REDO:
+        break
+      case FLAG.UNDO:
+        break
+      case FLAG.DEFAULT:
+        setIsLoading(true)
+        if (isLoading) {
+          return
+        }
+
+        historyShapes.current.push(new Array())
+        historyStep.current = historyShapes.current.length
+        break
+    }
+  }, [shapes])
+
   interface IShape {
     format: string
     x: number
@@ -123,11 +176,17 @@ export default function roofPage() {
   interface IShapeProps {
     shapes: IShape[]
     setShapes: React.Dispatch<React.SetStateAction<IShape[]>>
+    selectedId: string | null
+    selectShape: React.Dispatch<React.SetStateAction<string | null>>
+    moveFigure: Function
   }
 
   const shapeProps: IShapeProps = {
     shapes,
     setShapes,
+    selectedId,
+    selectShape,
+    moveFigure,
   }
 
   return (
@@ -181,6 +240,13 @@ export default function roofPage() {
           onClick={handlePaste}
         >
           붙여넣기
+        </button>
+
+        <button
+          className="w-30 mx-2 p-2 rounded bg-red-500 text-white"
+          onClick={handleDelete}
+        >
+          삭제
         </button>
       </div>
       <div className="container flex flex-wrap items-center justify-between mx-auto p-4 m-4 border">
